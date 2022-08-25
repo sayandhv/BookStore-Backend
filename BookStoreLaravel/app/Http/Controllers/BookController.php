@@ -19,7 +19,7 @@ class BookController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|between:2,100',
             'description' => 'required|string|between:5,1000',
-            'author' => 'required|string|between:5,300',
+            'author' => 'required|string|between:2,300',
             'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             // 'image' => 'required|string|between:5,1000',
             'Price' => 'required|integer',
@@ -156,5 +156,131 @@ class BookController extends Controller
                 'message' => $exception->message()
             ], $exception->statusCode());
         }
-    }    
+    }   
+    
+    public function addQuantityToExistingBook(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required',
+            'quantity' => 'required',
+        ]);
+        if ($validator->fails()) {
+            return response()->json($validator->errors()->toJson(), 400);
+        }
+        try {
+            $currentUser = JWTAuth::parseToken()->authenticate();
+            if (!$currentUser) {
+                Log::error('Invalid User');
+                throw new BookStoreException("Invalid authorization token", 404);
+            }
+            $book = new Book();
+            $adminId = $book->adminOrUserVerification($currentUser->id);
+            if (!$adminId) {
+                return response()->json(['message' => 'NOT AN ADMIN'], 404);
+            }
+
+            $bookDetails = $book->findingBook($request->id);
+            if (!$bookDetails) {
+                throw new BookStoreException("Couldnot found a book with that given id", 404);
+            }
+
+            $bookDetails->quantity += $request->quantity;
+            $bookDetails->save();
+            Cache::forget('books');
+
+            return response()->json([
+                'status' => 201,
+                'message' => 'Book Quantity updated Successfully'
+            ], 201);
+        } catch (BookStoreException $exception) {
+            return $exception->message();
+        }
+    }
+
+    //DISPLAY ALL BOOKS
+    public function displayAllBooks()
+    {
+        try {
+             $book = Book::get();
+
+            if ($book == []) {
+                throw new BookStoreException("Books are not there", 404);
+            }
+            return response()->json([
+                'message' => 'Display All books are :',
+                'books' => $book
+
+            ], 201);
+        } catch (BookStoreException $exception) {
+            return $exception->message();
+        }
+    }
+
+    //SORTING ASSENDING ORDER
+    public function sortPriceLowToHigh()
+    {
+        $currentUser = JWTAuth::parseToken()->authenticate();
+        $book = new Book();
+        if ($currentUser) {
+            $bookDetails = $book->ascendingOrder();
+        }
+        if ($bookDetails == []) {
+            return response()->json(['message' => 'Books not found'], 404);
+        }
+        return response()->json([
+            'message' => 'Sorting Books are Low to high',
+            'books' => $bookDetails
+        ], 201);
+
+    }
+
+
+    //SORTING DESCENDING ORDER
+    public function sortPriceHighToLow()
+    {
+        $currentUser = JWTAuth::parseToken()->authenticate();
+        $book = new Book();
+        if ($currentUser) {
+            $bookDetails = $book->descendingOrder();
+        }
+        if ($bookDetails == []) {
+            return response()->json(['message' => 'Books not found'], 404);
+        }
+        return response()->json([
+            'message' => 'Sorting Books are High to Low',
+            'books' => $bookDetails
+        ], 201);
+    }
+
+
+    //SEARCHING BY KEYWORDS 
+    public function searchBookByKeyword(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'search' => 'required|string'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors()->toJson(), 400);
+        }
+        try {
+            $searchKey = $request->input('search');
+            $currentUser = JWTAuth::parseToken()->authenticate();
+
+            if ($currentUser) {
+                $userbooks = new Book();
+                Log::info('Search is Successfull');
+                return response()->json([
+                    'message' => 'Search done Successfully',
+                    'books' => $userbooks->searchBook($searchKey)
+                ], 201);
+                if ($userbooks == '[]') {
+                    Log::error('No Book Found');
+                    throw new BookStoreException("No Book Found For This Search Key ", 404);
+                }
+            }
+        } catch (BookStoreException $exception) {
+            return $exception->message();
+        }
+    }
 }

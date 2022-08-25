@@ -30,6 +30,7 @@ class PasswordController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (!$user) {
+            Log::warning('Not a registerd email');
             return response()->json([
                 'message' => 'Email is not registered',
             ], 402);
@@ -46,7 +47,7 @@ class PasswordController extends Controller
 
             Mail::send('mail', $data, function ($message) use ($data) {
                 $message->to($data['email'], $data['name'])->subject('Reset Password');
-                $message->from('depaknb5@gmail.com', 'Deepak');
+                $message->from('sayandhv160@gmail.com', 'Sayandh');
             });
 
             return response()->json([
@@ -71,16 +72,16 @@ class PasswordController extends Controller
             $currentUser = JWTAuth::authenticate($request->token);
 
             if (!$currentUser) {
-                log::warning('Invalid Authorisation Token ');
+                Log::warning('Invalid Authorisation Token ');
                 throw new bookstoreexception('Invalid Authorization Token', 401);
             } else {
                 $user = User::updatePassword($currentUser, $request->new_password);
-                log::info('Password updated successfully');
+                Log::info('Password updated successfully');
                 return response()->json([
                     'message' => 'Password Reset Successful'
                 ], 201);
             }
-        } catch (bookstoreexception $exception) {
+        } catch (BookStoreException $exception) {
             return response()->json([
                 'message' => $exception->message()
             ], $exception->statusCode());
