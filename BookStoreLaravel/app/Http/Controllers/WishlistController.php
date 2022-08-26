@@ -39,6 +39,7 @@ class WishlistController extends Controller
                 $book_existance = $book->findingBook($book_id);
 
                 if (!$book_existance) {
+                    Log::warning('Book not Found in The BOOKSTORE');
                     return response()->json(['message' => 'Book not Found in The BOOKSTORE'], 404);
                 }
                 $books = Book::find($book_id);
